@@ -18,10 +18,8 @@ payload = None
 def get_data(headers, url):
     try:
         global payload
-        print('1')
         response = requests.get(url, headers=headers, params=payload)
         data = response.json()
-        print(data)
         if data['status'] == 'found':
             result = data['new_attempts'][0]
             send_message(result['is_negative'], result['lesson_title'])
