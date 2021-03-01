@@ -6,41 +6,42 @@ import os
 from dotenv import load_dotenv
 import telegram
 
-load_dotenv()
-logging.basicConfig(
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S',
-    format="%(asctime)s - [%(levelname)s] - %(message)s",
-)
-payload = None
 
+def check_work_status(headers, url):
+    payload = None
 
-def get_data(headers, url):
-    try:
-        global payload
-        response = requests.get(url, headers=headers, params=payload)
-        data = response.json()
-        if data['status'] == 'found':
-            result = data['new_attempts'][0]
-            send_message(result['is_negative'], result['lesson_title'])
-            timestamp = result['timestamp']
-        else:
-            timestamp = data['timestamp_to_request']
-        payload = {"timestamp": timestamp}
-    except requests.exceptions.ReadTimeout:
-        logging.error('Read Timeout')
-        time.sleep(5)
-    except requests.exceptions.ConnectionError:
-        logging.error('Connection Error')
-        time.sleep(5)
+    while True:
+        try:
+            response = requests.get(url, headers=headers, params=payload)
+            response.raise_for_status()
+            data = response.json()
+            if 'error' in data:
+                raise requests.exceptions.HTTPError(data['error'])
+
+            if data['status'] == 'found':
+                result = data['new_attempts'][0]
+                send_message(result['is_negative'], result['lesson_title'])
+                timestamp = result['timestamp']
+            else:
+                timestamp = data['timestamp_to_request']
+
+            payload = {"timestamp": timestamp}
+        except requests.exceptions.ReadTimeout:
+            continue
+        except requests.exceptions.ConnectionError:
+            logging.exception('Connection Error')
+            time.sleep(5)
+        except requests.exceptions.HTTPError:
+            logging.exception('HTTPError')
 
 
 def send_message(is_negative, lesson_title):
-    TG_TOKEN = os.getenv("TG_TOKEN")
-    TG_CHAT_ID = os.getenv("TG_CHAT_ID")
-    HTTP_PROXY = os.getenv('HTTP_PROXY')
-    pp = telegram.utils.request.Request(proxy_url=HTTP_PROXY)
-    bot = telegram.Bot(token=TG_TOKEN, request=pp)
+    tg_token = os.getenv("TG_TOKEN")
+    tg_chat_id = os.getenv("TG_CHAT_ID")
+    http_proxy = os.getenv('HTTP_PROXY')
+
+    pp = telegram.utils.request.Request(proxy_url=http_proxy)
+    bot = telegram.Bot(token=tg_token, request=pp)
 
     message = f'У вас проверили работу "{lesson_title}"' + '\n\n'
     if is_negative:
@@ -48,18 +49,23 @@ def send_message(is_negative, lesson_title):
     else:
         message = message + 'Предователю все понравилось, можно приступать к следующему уроку!'
 
-    bot.send_message(chat_id=TG_CHAT_ID, text=message)
+    bot.send_message(chat_id=tg_chat_id, text=message)
 
 
 def main():
-    DEVMAN_API_TOKEN = os.getenv("DEVMAN_API_TOKEN")
+    logging.basicConfig(datefmt='%Y-%m-%d %H:%M:%S', format="%(asctime)s - [%(levelname)s] - %(message)s")
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    load_dotenv()
+    devman_api_token = os.getenv("DEVMAN_API_TOKEN")
+
     headers = {
-        "Authorization": f'Token {DEVMAN_API_TOKEN}'
+        "Authorization": f'Token {devman_api_token}'
     }
     url = 'https://dvmn.org/api/long_polling/'
 
-    while True:
-        get_data(headers, url)
+    check_work_status(headers, url)
 
 
 if __name__ == '__main__':
