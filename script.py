@@ -6,6 +6,8 @@ import os
 from dotenv import load_dotenv
 import telegram
 
+logger = logging.getLogger()
+
 
 def check_work_status(headers, url):
     payload = None
@@ -29,10 +31,10 @@ def check_work_status(headers, url):
         except requests.exceptions.ReadTimeout:
             continue
         except requests.exceptions.ConnectionError:
-            logging.exception('Connection Error')
+            logger.exception('Connection Error')
             time.sleep(5)
         except requests.exceptions.HTTPError:
-            logging.exception('HTTPError')
+            logger.exception('HTTPError')
 
 
 def send_message(is_negative, lesson_title):
@@ -54,7 +56,6 @@ def send_message(is_negative, lesson_title):
 
 def main():
     logging.basicConfig(datefmt='%Y-%m-%d %H:%M:%S', format="%(asctime)s - [%(levelname)s] - %(message)s")
-    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
     load_dotenv()
