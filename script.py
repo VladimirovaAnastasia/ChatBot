@@ -17,8 +17,6 @@ def check_work_status(headers, url):
             response = requests.get(url, headers=headers, params=payload)
             response.raise_for_status()
             data = response.json()
-            if 'error' in data:
-                raise requests.exceptions.HTTPError(data['error'])
 
             if data['status'] == 'found':
                 result = data['new_attempts'][0]
